@@ -376,7 +376,7 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
 
 const TOTAL_STEPS = 5;
 
-export default function HeroSearch({ onSearch, error }) {
+export default function HeroSearch({ onSearch, error, onShowStats }) {
   const [step, setStep] = useState(0);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -385,6 +385,15 @@ export default function HeroSearch({ onSearch, error }) {
   const [travelers, setTravelers] = useState(1);
   const [budget, setBudget] = useState('moderate');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stats, setStats] = useState(null);
+
+  // Fetch analytics on mount
+  useState(() => {
+    fetch('/api/analytics')
+      .then((r) => r.json())
+      .then((d) => setStats(d))
+      .catch(() => {});
+  });
 
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
@@ -445,6 +454,21 @@ export default function HeroSearch({ onSearch, error }) {
               ✈️ TravelAI
             </h1>
             <p className="text-sky-200 text-lg">Plan your perfect trip in 60 seconds</p>
+
+            {/* Live stats badge */}
+            {stats && (
+              <div className="mt-4 inline-flex items-center gap-3 glass px-4 py-2 rounded-full text-sm">
+                <span className="flex items-center gap-1.5 text-white/80">
+                  🌍 <strong className="text-white">{stats.totalSearches.toLocaleString()}</strong> trips planned
+                </span>
+                {stats.todaySearches > 0 && (
+                  <>
+                    <span className="text-white/20">·</span>
+                    <span className="text-white/60 text-xs">{stats.todaySearches} today</span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -485,8 +509,21 @@ export default function HeroSearch({ onSearch, error }) {
           )}
         </div>
 
-        {/* Step counter */}
-        <p className="mt-6 text-white/30 text-xs">Step {step + 1} of {TOTAL_STEPS}</p>
+        {/* Step counter + stats link */}
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <p className="text-white/30 text-xs">Step {step + 1} of {TOTAL_STEPS}</p>
+          {onShowStats && (
+            <>
+              <span className="text-white/15">·</span>
+              <button
+                onClick={onShowStats}
+                className="text-white/30 hover:text-white/60 text-xs transition-colors flex items-center gap-1"
+              >
+                📊 View site stats
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
