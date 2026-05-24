@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Anthropic from '@anthropic-ai/sdk';
+import Stripe from 'stripe';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
@@ -21,6 +22,12 @@ app.use((req, res, next) => {
 });
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+const APP_URL = process.env.APP_URL || 'https://travel-planner-ai-for-you.fly.dev';
+const PLAN_PRICE_PAISE = 9900; // ₹99 in paise
 
 // ── In-memory analytics ───────────────────────────────────────────────────────
 const analytics = {
@@ -61,6 +68,57 @@ app.get('/api/analytics', (req, res) => {
     topRoutes,
     serverUpSince: analytics.startedAt,
   });
+});
+
+// ── Stripe: Create checkout session ──────────────────────────────────────────
+app.post('/api/create-checkout-session', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Payments not configured yet. Add STRIPE_SECRET_KEY.' });
+  const { from, to } = req.body;
+  if (!from || !to) return res.status(400).json({ error: 'Origin and destination required' });
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'inr',
+          product_data: {
+            name: `✈️ AI Travel Plan: ${from} → ${to}`,
+            description: 'Complete itinerary · Flights · Hotels · 10+ Places · 3 Budget Plans',
+            images: ['https://travel-planner-ai-for-you.fly.dev/plane.svg'],
+          },
+          unit_amount: PLAN_PRICE_PAISE,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: `${APP_URL}/?paid=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/`,
+      custom_text: {
+        submit: { message: 'Your AI travel plan will be generated immediately after payment.' },
+      },
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout error:', err.message);
+    res.status(500).json({ error: 'Could not create payment session', details: err.message });
+  }
+});
+
+// ── Stripe: Verify payment & return travel params ─────────────────────────────
+app.get('/api/verify-payment/:sessionId', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Payments not configured' });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
+    if (session.payment_status === 'paid') {
+      res.json({ paid: true, amountTotal: session.amount_total, currency: session.currency });
+    } else {
+      res.status(402).json({ paid: false, status: session.payment_status });
+    }
+  } catch (err) {
+    res.status(400).json({ paid: false, error: err.message });
+  }
 });
 
 // ── Phase 1: Quick destination preview (~5-8 seconds) ─────────────────────────
@@ -129,10 +187,32 @@ Include exactly 4 top places. Return ONLY valid JSON.`;
 
 // ── Phase 2: Full travel plan (~25-40 seconds) ────────────────────────────────
 app.post('/api/travel-plan', async (req, res) => {
-  const { from, to, departDate, returnDate, travelers, budget } = req.body;
+  const { from, to, departDate, returnDate, travelers, budget, session_id } = req.body;
 
   if (!from || !to) return res.status(400).json({ error: 'Origin and destination are required' });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(401).json({ error: 'API key missing' });
+
+  // ── Payment verification ──────────────────────────────────────────────────
+  if (stripe) {
+    if (!session_id) {
+      return res.status(402).json({
+        error: 'Payment required',
+        details: 'Please pay ₹99 to generate your travel plan.',
+        code: 'PAYMENT_REQUIRED',
+      });
+    }
+    try {
+      const stripeSession = await stripe.checkout.sessions.retrieve(session_id);
+      if (stripeSession.payment_status !== 'paid') {
+        return res.status(402).json({ error: 'Payment not completed', code: 'PAYMENT_REQUIRED' });
+      }
+      console.log(`💳 Payment verified: ₹${stripeSession.amount_total / 100} — session ${session_id.substring(0, 20)}...`);
+    } catch (err) {
+      return res.status(402).json({ error: 'Invalid payment session', details: err.message, code: 'PAYMENT_REQUIRED' });
+    }
+  } else {
+    console.warn('⚠️  Stripe not configured — skipping payment verification');
+  }
 
   trackSearch(from, to);
 

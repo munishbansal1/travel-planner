@@ -297,77 +297,105 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
 
   return (
     <div className="animate-slide-up">
-      <div className="text-center mb-8">
-        <div className="text-5xl mb-4">🎉</div>
-        <h2 className="text-3xl sm:text-4xl font-black text-white mb-2">Your trip looks amazing!</h2>
-        <p className="text-sky-200">Review the details, then let AI plan everything</p>
+      <div className="text-center mb-6">
+        <div className="text-5xl mb-3">🎉</div>
+        <h2 className="text-3xl sm:text-4xl font-black text-white mb-1">Almost there!</h2>
+        <p className="text-sky-200">Review your trip details & pay to generate</p>
       </div>
 
-      {/* Summary card */}
-      <div className="bg-white/15 backdrop-blur-sm rounded-3xl border border-white/20 p-6 mb-6 space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1 bg-white/10 rounded-2xl px-4 py-3 text-center">
-            <p className="text-white/50 text-xs mb-1">FROM</p>
-            <p className="text-white font-bold text-lg">📍 {from}</p>
+      {/* Trip summary */}
+      <div className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20 p-4 mb-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 bg-white/10 rounded-xl px-3 py-2.5 text-center">
+            <p className="text-white/50 text-xs mb-0.5">FROM</p>
+            <p className="text-white font-bold">📍 {from}</p>
           </div>
-          <div className="text-white text-2xl">→</div>
-          <div className="flex-1 bg-white/10 rounded-2xl px-4 py-3 text-center">
-            <p className="text-white/50 text-xs mb-1">TO</p>
-            <p className="text-white font-bold text-lg">🎯 {to}</p>
+          <div className="text-white text-xl">→</div>
+          <div className="flex-1 bg-white/10 rounded-xl px-3 py-2.5 text-center">
+            <p className="text-white/50 text-xs mb-0.5">TO</p>
+            <p className="text-white font-bold">🎯 {to}</p>
           </div>
         </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/10 rounded-2xl px-3 py-3 text-center">
-            <p className="text-white/50 text-xs mb-1">DATES</p>
-            <p className="text-white font-semibold text-sm">
-              {departDate ? departDate : '🗓️ Flexible'}
-            </p>
-            {returnDate && <p className="text-white/60 text-xs mt-0.5">→ {returnDate}</p>}
+        <div className="grid grid-cols-3 gap-2 text-center text-sm">
+          <div className="bg-white/10 rounded-xl px-2 py-2">
+            <p className="text-white/50 text-xs">DATES</p>
+            <p className="text-white font-medium">{departDate || 'Flexible'}</p>
           </div>
-          <div className="bg-white/10 rounded-2xl px-3 py-3 text-center">
-            <p className="text-white/50 text-xs mb-1">TRAVELLERS</p>
-            <p className="text-white font-semibold text-sm">{travelerInfo?.emoji} {travelerInfo?.label}</p>
+          <div className="bg-white/10 rounded-xl px-2 py-2">
+            <p className="text-white/50 text-xs">TRAVELLERS</p>
+            <p className="text-white font-medium">{travelerInfo?.emoji} {travelerInfo?.label}</p>
           </div>
-          <div className="bg-white/10 rounded-2xl px-3 py-3 text-center">
-            <p className="text-white/50 text-xs mb-1">BUDGET</p>
-            <p className="text-white font-semibold text-sm">{budgetInfo?.emoji} {budgetInfo?.label}</p>
+          <div className="bg-white/10 rounded-xl px-2 py-2">
+            <p className="text-white/50 text-xs">BUDGET</p>
+            <p className="text-white font-medium">{budgetInfo?.emoji} {budgetInfo?.label}</p>
           </div>
         </div>
       </div>
 
-      {/* What you'll get */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        {[
-          { emoji: '✈️', label: 'Flights & transport' },
-          { emoji: '🗺️', label: '10+ places to visit' },
-          { emoji: '📅', label: '5-day itineraries' },
-          { emoji: '🏨', label: 'Hotel booking links' },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2.5">
-            <span className="text-lg">{item.emoji}</span>
-            <span className="text-white/80 text-sm">{item.label}</span>
-            <Check className="w-3.5 h-3.5 text-green-400 ml-auto flex-shrink-0" />
+      {/* Pricing card */}
+      <div className="bg-gradient-to-br from-yellow-400/20 to-orange-400/20 border border-yellow-400/30 rounded-2xl p-5 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-white font-black text-2xl">₹99</p>
+            <p className="text-yellow-200 text-xs">one-time · instant plan</p>
           </div>
-        ))}
+          <div className="text-right">
+            <p className="text-white/70 text-xs line-through">₹499</p>
+            <p className="text-yellow-300 text-xs font-bold">80% OFF Launch Price</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          {[
+            '✈️ Flights & transport with booking links',
+            '🗺️ 10+ curated places to visit',
+            '📅 3 full 5-day itineraries (Budget/Moderate/Luxury)',
+            '🏨 Hotel booking links',
+            '💡 Local tips & visa info',
+          ].map((item) => (
+            <div key={item} className="flex items-center gap-2 text-white/80 text-sm">
+              <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+              {item}
+            </div>
+          ))}
+        </div>
       </div>
 
+      {/* Pay button */}
       <div className="flex gap-3">
-        <button onClick={onBack} className="flex items-center gap-2 px-5 py-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 px-5 py-4 rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all"
+        >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
         <button
           onClick={onSubmit}
           disabled={isSubmitting}
-          className="flex-1 btn-primary flex items-center justify-center gap-2 py-4 text-lg rounded-2xl"
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-4 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-black text-lg shadow-xl transition-all active:scale-95 disabled:opacity-60"
         >
           {isSubmitting ? (
-            <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Planning your trip...</>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" />
+              Redirecting to payment...
+            </div>
           ) : (
-            <><Plane className="w-5 h-5" /> Plan My Trip! <Zap className="w-4 h-4 text-yellow-300" /></>
+            <>
+              <span className="flex items-center gap-2">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                </svg>
+                Pay ₹99 & Get My Plan
+              </span>
+              <span className="text-xs font-normal opacity-70">Secured by Stripe</span>
+            </>
           )}
         </button>
       </div>
+
+      <p className="text-center text-white/30 text-xs mt-3">
+        🔒 Secure payment · Your plan generates instantly after payment
+      </p>
     </div>
   );
 }
@@ -376,7 +404,7 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
 
 const TOTAL_STEPS = 5;
 
-export default function HeroSearch({ onSearch, error, onShowStats }) {
+export default function HeroSearch({ onSearch, error, onShowStats, isRedirecting }) {
   const [step, setStep] = useState(0);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');

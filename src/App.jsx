@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import HeroSearch from './components/HeroSearch';
 import LoadingScreen from './components/LoadingScreen';
 import ResultsPage from './components/ResultsPage';
 import StatsPage from './components/StatsPage';
 
-// stage: 'search' | 'preview-loading' | 'preview-ready' | 'results' | 'stats'
+// stage: 'search' | 'redirecting-to-payment' | 'preview-loading' | 'preview-ready' | 'results' | 'stats'
 
 export default function App() {
   const [stage, setStage] = useState('search');
@@ -14,16 +14,67 @@ export default function App() {
   const [error, setError] = useState(null);
   const [fullLoadProgress, setFullLoadProgress] = useState(0);
 
+  // ── On mount: check if returning from Stripe payment ──────────────────────
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paid = urlParams.get('paid');
+    const sessionId = urlParams.get('session_id');
+
+    if (paid === 'true' && sessionId) {
+      // Clean URL immediately
+      window.history.replaceState({}, '', '/');
+
+      // Retrieve saved travel params from sessionStorage
+      const saved = sessionStorage.getItem('travelParams');
+      if (saved) {
+        const params = JSON.parse(saved);
+        sessionStorage.removeItem('travelParams');
+        runTravelPlan({ ...params, session_id: sessionId });
+      } else {
+        setError('Session expired. Please search again.');
+      }
+    }
+  }, []);
+
+  // ── Step 1: User submits form → go to Stripe ─────────────────────────────
   const handleSearch = async (params) => {
+    setError(null);
+    setSearchParams(params);
+
+    // Save params in sessionStorage so we can retrieve them after Stripe redirect
+    sessionStorage.setItem('travelParams', JSON.stringify(params));
+
+    setStage('redirecting-to-payment');
+
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: params.from, to: params.to }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Could not create payment session');
+      }
+
+      const { url } = await res.json();
+      window.location.href = url; // → Stripe Checkout
+    } catch (err) {
+      setError(err.message);
+      setStage('search');
+    }
+  };
+
+  // ── Step 2: After payment → run two-phase plan generation ─────────────────
+  const runTravelPlan = async (params) => {
     setSearchParams(params);
     setPreviewData(null);
     setTravelData(null);
-    setError(null);
     setFullLoadProgress(0);
     setStage('preview-loading');
 
-    // ── Phase 1: Quick preview (~5-8 s) ──────────────────────────────────────
-    let preview = null;
+    // Phase 1: Quick preview (~5-8s) — free, shown while full plan loads
     try {
       const previewRes = await fetch('/api/travel-preview', {
         method: 'POST',
@@ -31,16 +82,15 @@ export default function App() {
         body: JSON.stringify({ from: params.from, to: params.to, departDate: params.departDate }),
       });
       if (previewRes.ok) {
-        preview = await previewRes.json();
+        const preview = await previewRes.json();
         setPreviewData(preview);
         setStage('preview-ready');
       }
     } catch {
-      // preview failed silently — stay on loading screen, full plan will still load
+      // preview fails silently — full plan continues
     }
 
-    // ── Phase 2: Full plan (~25-40 s) ─────────────────────────────────────────
-    // Simulate progress while waiting
+    // Phase 2: Full plan with payment session_id
     const progressInterval = setInterval(() => {
       setFullLoadProgress((p) => (p >= 85 ? p : p + Math.random() * 4));
     }, 800);
@@ -57,15 +107,10 @@ export default function App() {
 
       if (!res.ok) {
         const errData = await res.json();
-        const msg = errData.details ? `${errData.error} — ${errData.details}` : errData.error || 'Failed to generate travel plan';
-        throw new Error(msg);
+        throw new Error(errData.details ? `${errData.error} — ${errData.details}` : errData.error);
       }
 
       const data = await res.json();
-      // Merge preview overview if full plan overview is missing
-      if (preview && !data.destination_overview) {
-        data.destination_overview = preview.destination_overview;
-      }
       setTravelData(data);
       setStage('results');
     } catch (err) {
@@ -86,8 +131,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {stage === 'search' && (
-        <HeroSearch onSearch={handleSearch} error={error} onShowStats={() => setStage('stats')} />
+      {(stage === 'search' || stage === 'redirecting-to-payment') && (
+        <HeroSearch
+          onSearch={handleSearch}
+          error={error}
+          onShowStats={() => setStage('stats')}
+          isRedirecting={stage === 'redirecting-to-payment'}
+        />
       )}
       {(stage === 'preview-loading' || stage === 'preview-ready') && (
         <LoadingScreen
@@ -98,11 +148,7 @@ export default function App() {
         />
       )}
       {stage === 'results' && travelData && (
-        <ResultsPage
-          data={travelData}
-          searchParams={searchParams}
-          onReset={handleReset}
-        />
+        <ResultsPage data={travelData} searchParams={searchParams} onReset={handleReset} />
       )}
       {stage === 'stats' && (
         <StatsPage onBack={() => setStage('search')} />
