@@ -1,5 +1,8 @@
 # ✈️ TravelAI — Smart Travel Planner
 
+> **Built by [Munish Bansal](https://linkedin.com/in/munishbansal1)**  
+> 📧 [munishbansal.mb@gmail.com](mailto:munishbansal.mb@gmail.com) · 🐙 [github.com/munishbansal1](https://github.com/munishbansal1) · 💼 [linkedin.com/in/munishbansal1](https://linkedin.com/in/munishbansal1)
+
 An AI-powered travel planning website built with React + Express + Claude AI. Just enter your origin and destination, and get a complete travel plan including flights, places to visit, full itineraries, and booking links.
 
 ## Features
@@ -73,3 +76,15 @@ travel-planner/
 - Travel plan generation takes 20–40 seconds (Claude is thinking!)
 - Prices shown are AI estimates — actual prices may vary
 - Booking links open real travel sites pre-filled with your destination
+
+---
+
+## Author & License
+
+**© 2025 Munish Bansal** · All rights reserved
+
+| | |
+|---|---|
+| Email | [munishbansal.mb@gmail.com](mailto:munishbansal.mb@gmail.com) |
+| GitHub | [github.com/munishbansal1](https://github.com/munishbansal1) |
+| LinkedIn | [linkedin.com/in/munishbansal1](https://linkedin.com/in/munishbansal1) |
