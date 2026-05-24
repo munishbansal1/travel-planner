@@ -27,7 +27,11 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 const APP_URL = process.env.APP_URL || 'https://travel-planner-ai-for-you.fly.dev';
-const PLAN_PRICE_PAISE = 9900; // ₹99 in paise
+const PRICE_FULL_PAISE      = 9900; // ₹99 — first paid plan
+const PRICE_RETURNING_PAISE = 4900; // ₹49 — returning customer (50% off)
+
+// ── In-memory trial tracking (resets on restart; good enough for MVP) ─────────
+const usedTrials = new Set(); // clientIds that have consumed their free trial
 
 // ── In-memory analytics ───────────────────────────────────────────────────────
 const analytics = {
@@ -73,8 +77,16 @@ app.get('/api/analytics', (req, res) => {
 // ── Stripe: Create checkout session ──────────────────────────────────────────
 app.post('/api/create-checkout-session', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Payments not configured yet. Add STRIPE_SECRET_KEY.' });
-  const { from, to } = req.body;
+  const { from, to, returning } = req.body;
   if (!from || !to) return res.status(400).json({ error: 'Origin and destination required' });
+
+  const price       = returning ? PRICE_RETURNING_PAISE : PRICE_FULL_PAISE;
+  const priceLabel  = returning ? '₹49 (Loyalty Discount)' : '₹99';
+  const description = returning
+    ? '50% loyalty discount · Complete itinerary · Flights · Hotels · 10+ Places · 3 Budget Plans'
+    : 'Complete itinerary · Flights · Hotels · 10+ Places · 3 Budget Plans';
+
+  console.log(`💳 Creating checkout: ${priceLabel} — ${from} → ${to} (returning: ${!!returning})`);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -84,16 +96,15 @@ app.post('/api/create-checkout-session', async (req, res) => {
           currency: 'inr',
           product_data: {
             name: `✈️ AI Travel Plan: ${from} → ${to}`,
-            description: 'Complete itinerary · Flights · Hotels · 10+ Places · 3 Budget Plans',
-            images: ['https://travel-planner-ai-for-you.fly.dev/plane.svg'],
+            description,
           },
-          unit_amount: PLAN_PRICE_PAISE,
+          unit_amount: price,
         },
         quantity: 1,
       }],
       mode: 'payment',
       success_url: `${APP_URL}/?paid=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_URL}/`,
+      cancel_url:  `${APP_URL}/`,
       custom_text: {
         submit: { message: 'Your AI travel plan will be generated immediately after payment.' },
       },
@@ -106,13 +117,18 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-// ── Stripe: Verify payment & return travel params ─────────────────────────────
+// ── Stripe: Verify payment & return customer info ─────────────────────────────
 app.get('/api/verify-payment/:sessionId', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Payments not configured' });
   try {
     const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
     if (session.payment_status === 'paid') {
-      res.json({ paid: true, amountTotal: session.amount_total, currency: session.currency });
+      res.json({
+        paid: true,
+        amountTotal: session.amount_total,
+        currency: session.currency,
+        stripeCustomerId: session.customer || null, // saved so frontend can identify returning customers
+      });
     } else {
       res.status(402).json({ paid: false, status: session.payment_status });
     }
@@ -187,28 +203,41 @@ Include exactly 4 top places. Return ONLY valid JSON.`;
 
 // ── Phase 2: Full travel plan (~25-40 seconds) ────────────────────────────────
 app.post('/api/travel-plan', async (req, res) => {
-  const { from, to, departDate, returnDate, travelers, budget, session_id } = req.body;
+  const { from, to, departDate, returnDate, travelers, budget, session_id, trial, clientId } = req.body;
 
   if (!from || !to) return res.status(400).json({ error: 'Origin and destination are required' });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(401).json({ error: 'API key missing' });
 
-  // ── Payment verification ──────────────────────────────────────────────────
+  // ── Access control: trial bypass OR paid session ──────────────────────────
   if (stripe) {
-    if (!session_id) {
-      return res.status(402).json({
-        error: 'Payment required',
-        details: 'Please pay ₹99 to generate your travel plan.',
-        code: 'PAYMENT_REQUIRED',
-      });
-    }
-    try {
-      const stripeSession = await stripe.checkout.sessions.retrieve(session_id);
-      if (stripeSession.payment_status !== 'paid') {
-        return res.status(402).json({ error: 'Payment not completed', code: 'PAYMENT_REQUIRED' });
+    if (trial && clientId) {
+      // Free trial path
+      if (usedTrials.has(clientId)) {
+        return res.status(402).json({
+          error: 'Free trial already used',
+          details: 'Your free plan has been generated. Please pay ₹99 for another plan.',
+          code: 'TRIAL_USED',
+        });
       }
-      console.log(`💳 Payment verified: ₹${stripeSession.amount_total / 100} — session ${session_id.substring(0, 20)}...`);
-    } catch (err) {
-      return res.status(402).json({ error: 'Invalid payment session', details: err.message, code: 'PAYMENT_REQUIRED' });
+      console.log(`🎁 Free trial: ${from} → ${to} (client ${clientId.slice(0, 15)}...)`);
+    } else {
+      // Paid session path
+      if (!session_id) {
+        return res.status(402).json({
+          error: 'Payment required',
+          details: 'Please complete payment to generate your travel plan.',
+          code: 'PAYMENT_REQUIRED',
+        });
+      }
+      try {
+        const stripeSession = await stripe.checkout.sessions.retrieve(session_id);
+        if (stripeSession.payment_status !== 'paid') {
+          return res.status(402).json({ error: 'Payment not completed', code: 'PAYMENT_REQUIRED' });
+        }
+        console.log(`💳 Payment verified: ₹${stripeSession.amount_total / 100} — session ${session_id.substring(0, 20)}...`);
+      } catch (err) {
+        return res.status(402).json({ error: 'Invalid payment session', details: err.message, code: 'PAYMENT_REQUIRED' });
+      }
     }
   } else {
     console.warn('⚠️  Stripe not configured — skipping payment verification');
@@ -404,6 +433,13 @@ Rules:
     }
 
     console.log(`✅ Full plan ready — places: ${travelData.places_to_visit?.length}, itineraries: ${travelData.itineraries?.length}`);
+
+    // Mark free trial as consumed (after success, not before)
+    if (trial && clientId) {
+      usedTrials.add(clientId);
+      console.log(`🎫 Trial consumed: ${clientId.slice(0, 15)}...`);
+    }
+
     res.json(travelData);
 
   } catch (error) {

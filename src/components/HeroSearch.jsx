@@ -291,16 +291,80 @@ function StepTravelers({ travelers, budget, onChangeTravelers, onChangeBudget, o
   );
 }
 
-function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSubmit, onBack, isSubmitting }) {
-  const budgetInfo = BUDGET_OPTIONS.find((b) => b.value === budget);
+// ── Pricing card configs ─────────────────────────────────────────────────────
+
+const PRICING = {
+  trial: {
+    badge:       '🎁 FREE TRIAL',
+    badgeClass:  'bg-green-500/30 text-green-200 border-green-400/40',
+    cardClass:   'from-green-500/20 to-emerald-500/20 border-green-400/30',
+    price:       null,
+    priceLabel:  'FREE',
+    priceNote:   'No credit card needed',
+    strikePrice: null,
+    discount:    null,
+    btnClass:    'from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600',
+    btnLabel:    '🎁 Get My Free Plan',
+    btnSub:      'First plan is always free',
+    footerNote:  '✨ Free trial · No payment required · Your plan generates instantly',
+  },
+  new: {
+    badge:       '⚡ ONE-TIME',
+    badgeClass:  'bg-yellow-500/20 text-yellow-200 border-yellow-400/30',
+    cardClass:   'from-yellow-400/20 to-orange-400/20 border-yellow-400/30',
+    price:       '₹99',
+    priceLabel:  '₹99',
+    priceNote:   'one-time · instant plan',
+    strikePrice: '₹499',
+    discount:    '80% OFF Launch Price',
+    btnClass:    'from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600',
+    btnLabel:    '💳 Pay ₹99 & Get My Plan',
+    btnSub:      'Secured by Stripe',
+    footerNote:  '🔒 Secure payment · Your plan generates instantly after payment',
+  },
+  returning: {
+    badge:       '💛 LOYALTY DISCOUNT',
+    badgeClass:  'bg-purple-500/20 text-purple-200 border-purple-400/30',
+    cardClass:   'from-purple-500/20 to-pink-500/20 border-purple-400/30',
+    price:       '₹49',
+    priceLabel:  '₹49',
+    priceNote:   'loyalty price · instant plan',
+    strikePrice: '₹99',
+    discount:    '50% OFF — Welcome Back!',
+    btnClass:    'from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600',
+    btnLabel:    '💛 Pay ₹49 & Get My Plan',
+    btnSub:      'Loyalty discount applied · Secured by Stripe',
+    footerNote:  '🔒 Secure payment · Loyalty discount automatically applied',
+  },
+};
+
+const PLAN_FEATURES = [
+  '✈️ Flights & transport with booking links',
+  '🗺️ 10+ curated places to visit',
+  '📅 3 full 5-day itineraries (Budget/Moderate/Luxury)',
+  '🏨 Hotel booking links',
+  '💡 Local tips & visa info',
+];
+
+function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSubmit, onBack, isSubmitting, customerType }) {
+  const budgetInfo   = BUDGET_OPTIONS.find((b) => b.value === budget);
   const travelerInfo = TRAVELER_OPTIONS.find((t) => t.value === travelers);
+  const pricing      = PRICING[customerType] || PRICING.new;
 
   return (
     <div className="animate-slide-up">
       <div className="text-center mb-6">
-        <div className="text-5xl mb-3">🎉</div>
-        <h2 className="text-3xl sm:text-4xl font-black text-white mb-1">Almost there!</h2>
-        <p className="text-sky-200">Review your trip details & pay to generate</p>
+        <div className="text-5xl mb-3">{customerType === 'trial' ? '🎁' : customerType === 'returning' ? '💛' : '🎉'}</div>
+        <h2 className="text-3xl sm:text-4xl font-black text-white mb-1">
+          {customerType === 'trial' ? 'Your First Plan is FREE!' : 'Almost there!'}
+        </h2>
+        <p className="text-sky-200">
+          {customerType === 'trial'
+            ? 'No payment needed — enjoy your complimentary plan'
+            : customerType === 'returning'
+            ? 'Welcome back! Your loyalty discount is applied 💛'
+            : 'Review your trip details & pay to generate'}
+        </p>
       </div>
 
       {/* Trip summary */}
@@ -333,26 +397,27 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
       </div>
 
       {/* Pricing card */}
-      <div className="bg-gradient-to-br from-yellow-400/20 to-orange-400/20 border border-yellow-400/30 rounded-2xl p-5 mb-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className={`bg-gradient-to-br ${pricing.cardClass} border rounded-2xl p-5 mb-4`}>
+        {/* Badge + price row */}
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <p className="text-white font-black text-2xl">₹99</p>
-            <p className="text-yellow-200 text-xs">one-time · instant plan</p>
+            <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-full border mb-2 ${pricing.badgeClass}`}>
+              {pricing.badge}
+            </span>
+            <p className="text-white font-black text-3xl leading-none">{pricing.priceLabel}</p>
+            <p className="text-white/60 text-xs mt-0.5">{pricing.priceNote}</p>
           </div>
-          <div className="text-right">
-            <p className="text-white/70 text-xs line-through">₹499</p>
-            <p className="text-yellow-300 text-xs font-bold">80% OFF Launch Price</p>
-          </div>
+          {pricing.strikePrice && (
+            <div className="text-right mt-1">
+              <p className="text-white/50 text-sm line-through">{pricing.strikePrice}</p>
+              <p className="text-yellow-300 text-xs font-bold mt-0.5">{pricing.discount}</p>
+            </div>
+          )}
         </div>
 
+        {/* Feature list */}
         <div className="space-y-1.5">
-          {[
-            '✈️ Flights & transport with booking links',
-            '🗺️ 10+ curated places to visit',
-            '📅 3 full 5-day itineraries (Budget/Moderate/Luxury)',
-            '🏨 Hotel booking links',
-            '💡 Local tips & visa info',
-          ].map((item) => (
+          {PLAN_FEATURES.map((item) => (
             <div key={item} className="flex items-center gap-2 text-white/80 text-sm">
               <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
               {item}
@@ -361,7 +426,7 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
         </div>
       </div>
 
-      {/* Pay button */}
+      {/* Action button */}
       <div className="flex gap-3">
         <button
           onClick={onBack}
@@ -372,30 +437,23 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
         <button
           onClick={onSubmit}
           disabled={isSubmitting}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-4 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 font-black text-lg shadow-xl transition-all active:scale-95 disabled:opacity-60"
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-4 rounded-2xl bg-gradient-to-r ${pricing.btnClass} text-white font-black text-lg shadow-xl transition-all active:scale-95 disabled:opacity-60`}
         >
           {isSubmitting ? (
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" />
-              Redirecting to payment...
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {customerType === 'trial' ? 'Generating your plan...' : 'Redirecting to payment...'}
             </div>
           ) : (
             <>
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                </svg>
-                Pay ₹99 & Get My Plan
-              </span>
-              <span className="text-xs font-normal opacity-70">Secured by Stripe</span>
+              <span>{pricing.btnLabel}</span>
+              <span className="text-xs font-normal opacity-75">{pricing.btnSub}</span>
             </>
           )}
         </button>
       </div>
 
-      <p className="text-center text-white/30 text-xs mt-3">
-        🔒 Secure payment · Your plan generates instantly after payment
-      </p>
+      <p className="text-center text-white/30 text-xs mt-3">{pricing.footerNote}</p>
     </div>
   );
 }
@@ -404,7 +462,7 @@ function StepSummary({ from, to, departDate, returnDate, travelers, budget, onSu
 
 const TOTAL_STEPS = 5;
 
-export default function HeroSearch({ onSearch, error, onShowStats, isRedirecting }) {
+export default function HeroSearch({ onSearch, error, onShowStats, isRedirecting, customerType = 'trial' }) {
   const [step, setStep] = useState(0);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -483,6 +541,18 @@ export default function HeroSearch({ onSearch, error, onShowStats, isRedirecting
             </h1>
             <p className="text-sky-200 text-lg">Plan your perfect trip in 60 seconds</p>
 
+            {/* Free trial badge */}
+            {customerType === 'trial' && (
+              <div className="mt-3 inline-flex items-center gap-2 bg-green-500/20 border border-green-400/30 text-green-200 px-4 py-2 rounded-full text-sm font-semibold">
+                🎁 Your first plan is <strong className="text-green-100">completely FREE</strong>
+              </div>
+            )}
+            {customerType === 'returning' && (
+              <div className="mt-3 inline-flex items-center gap-2 bg-purple-500/20 border border-purple-400/30 text-purple-200 px-4 py-2 rounded-full text-sm font-semibold">
+                💛 Welcome back! Loyalty price: <strong className="text-purple-100">₹49</strong>
+              </div>
+            )}
+
             {/* Live stats badge */}
             {stats && (
               <div className="mt-4 inline-flex items-center gap-3 glass px-4 py-2 rounded-full text-sm">
@@ -533,6 +603,7 @@ export default function HeroSearch({ onSearch, error, onShowStats, isRedirecting
               from={from} to={to} departDate={departDate} returnDate={returnDate}
               travelers={travelers} budget={budget}
               onSubmit={handleSubmit} onBack={back} isSubmitting={isSubmitting}
+              customerType={customerType}
             />
           )}
         </div>

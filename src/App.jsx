@@ -6,6 +6,32 @@ import StatsPage from './components/StatsPage';
 
 // stage: 'search' | 'redirecting-to-payment' | 'preview-loading' | 'preview-ready' | 'results' | 'stats'
 
+// ── Customer state helpers ─────────────────────────────────────────────────────
+function getCustomerState() {
+  try {
+    const saved = localStorage.getItem('travelCustomer');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  // First visit — create a unique client ID
+  const clientId = 'cl_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const state = { clientId, trialUsed: false, paidCustomer: false, stripeCustomerId: null };
+  localStorage.setItem('travelCustomer', JSON.stringify(state));
+  return state;
+}
+
+function saveCustomerState(updates) {
+  const current = getCustomerState();
+  const next = { ...current, ...updates };
+  localStorage.setItem('travelCustomer', JSON.stringify(next));
+  return next;
+}
+
+function deriveCustomerType(cs) {
+  if (!cs.trialUsed) return 'trial';        // first-ever plan → free
+  if (cs.paidCustomer) return 'returning';  // has paid before → ₹49
+  return 'new';                             // trial used, never paid → ₹99
+}
+
 export default function App() {
   const [stage, setStage] = useState('search');
   const [travelData, setTravelData] = useState(null);
@@ -13,18 +39,36 @@ export default function App() {
   const [searchParams, setSearchParams] = useState(null);
   const [error, setError] = useState(null);
   const [fullLoadProgress, setFullLoadProgress] = useState(0);
+  const [customerType, setCustomerType] = useState('trial'); // 'trial' | 'new' | 'returning'
 
-  // ── On mount: check if returning from Stripe payment ──────────────────────
+  // Compute customer type on first render
+  useEffect(() => {
+    setCustomerType(deriveCustomerType(getCustomerState()));
+  }, []);
+
+  // ── On mount: check if returning from Stripe ──────────────────────────────
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paid = urlParams.get('paid');
     const sessionId = urlParams.get('session_id');
 
     if (paid === 'true' && sessionId) {
-      // Clean URL immediately
       window.history.replaceState({}, '', '/');
 
-      // Retrieve saved travel params from sessionStorage
+      // Verify payment & update customer state
+      fetch(`/api/verify-payment/${sessionId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.paid) {
+            const updates = { trialUsed: true, paidCustomer: true };
+            if (data.stripeCustomerId) updates.stripeCustomerId = data.stripeCustomerId;
+            const next = saveCustomerState(updates);
+            setCustomerType(deriveCustomerType(next));
+          }
+        })
+        .catch(() => {});
+
+      // Retrieve saved travel params and run plan
       const saved = sessionStorage.getItem('travelParams');
       if (saved) {
         const params = JSON.parse(saved);
@@ -36,21 +80,32 @@ export default function App() {
     }
   }, []);
 
-  // ── Step 1: User submits form → go to Stripe ─────────────────────────────
+  // ── Step 1: User submits the wizard form ──────────────────────────────────
   const handleSearch = async (params) => {
     setError(null);
     setSearchParams(params);
 
-    // Save params in sessionStorage so we can retrieve them after Stripe redirect
-    sessionStorage.setItem('travelParams', JSON.stringify(params));
+    const cs = getCustomerState();
 
+    // ── FREE TRIAL (first plan ever) ─────────────────────────────────────────
+    if (!cs.trialUsed) {
+      runTravelPlan({ ...params, trial: true, clientId: cs.clientId });
+      return;
+    }
+
+    // ── PAID FLOW ─────────────────────────────────────────────────────────────
+    sessionStorage.setItem('travelParams', JSON.stringify(params));
     setStage('redirecting-to-payment');
 
     try {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: params.from, to: params.to }),
+        body: JSON.stringify({
+          from: params.from,
+          to: params.to,
+          returning: cs.paidCustomer, // true → ₹49 loyalty price
+        }),
       });
 
       if (!res.ok) {
@@ -66,7 +121,7 @@ export default function App() {
     }
   };
 
-  // ── Step 2: After payment → run two-phase plan generation ─────────────────
+  // ── Step 2: Two-phase plan generation ────────────────────────────────────
   const runTravelPlan = async (params) => {
     setSearchParams(params);
     setPreviewData(null);
@@ -90,7 +145,7 @@ export default function App() {
       // preview fails silently — full plan continues
     }
 
-    // Phase 2: Full plan with payment session_id
+    // Phase 2: Full plan
     const progressInterval = setInterval(() => {
       setFullLoadProgress((p) => (p >= 85 ? p : p + Math.random() * 4));
     }, 800);
@@ -107,10 +162,25 @@ export default function App() {
 
       if (!res.ok) {
         const errData = await res.json();
+
+        // If server says trial already used (e.g. server restarted & lost memory),
+        // sync local state so the user gets the paid flow next time.
+        if (errData.code === 'TRIAL_USED') {
+          const next = saveCustomerState({ trialUsed: true });
+          setCustomerType(deriveCustomerType(next));
+        }
+
         throw new Error(errData.details ? `${errData.error} — ${errData.details}` : errData.error);
       }
 
       const data = await res.json();
+
+      // Mark trial as used after the plan is successfully generated
+      if (params.trial) {
+        const next = saveCustomerState({ trialUsed: true });
+        setCustomerType(deriveCustomerType(next));
+      }
+
       setTravelData(data);
       setStage('results');
     } catch (err) {
@@ -127,6 +197,7 @@ export default function App() {
     setSearchParams(null);
     setError(null);
     setFullLoadProgress(0);
+    setCustomerType(deriveCustomerType(getCustomerState()));
   };
 
   return (
@@ -137,6 +208,7 @@ export default function App() {
           error={error}
           onShowStats={() => setStage('stats')}
           isRedirecting={stage === 'redirecting-to-payment'}
+          customerType={customerType}
         />
       )}
       {(stage === 'preview-loading' || stage === 'preview-ready') && (
