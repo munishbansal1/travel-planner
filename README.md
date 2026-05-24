@@ -1,7 +1,7 @@
 # ✈️ TravelAI — Smart Travel Planner
 
-> **Built by [Munish Bansal](https://linkedin.com/in/munishbansal1)**  
-> 📧 [munishbansal.mb@gmail.com](mailto:munishbansal.mb@gmail.com) · 🐙 [github.com/munishbansal1](https://github.com/munishbansal1) · 💼 [linkedin.com/in/munishbansal1](https://linkedin.com/in/munishbansal1)
+> **Built by [Munish Bansal](https://www.linkedin.com/in/munish-bansal-66b7844/)**  
+> 📧 [munishbansal.mb@gmail.com](mailto:munishbansal.mb@gmail.com) · 🐙 [github.com/munishbansal1](https://github.com/munishbansal1) · 💼 [linkedin.com/in/munish-bansal-66b7844](https://www.linkedin.com/in/munish-bansal-66b7844/)
 
 An AI-powered travel planning website built with React + Express + Claude AI. Just enter your origin and destination, and get a complete travel plan including flights, places to visit, full itineraries, and booking links.
 
@@ -87,4 +87,4 @@ travel-planner/
 |---|---|
 | Email | [munishbansal.mb@gmail.com](mailto:munishbansal.mb@gmail.com) |
 | GitHub | [github.com/munishbansal1](https://github.com/munishbansal1) |
-| LinkedIn | [linkedin.com/in/munishbansal1](https://linkedin.com/in/munishbansal1) |
+| LinkedIn | [linkedin.com/in/munish-bansal-66b7844](https://www.linkedin.com/in/munish-bansal-66b7844/) |

@@ -307,7 +307,7 @@ export default function ResultsPage({ data, searchParams, onReset }) {
                   GitHub
                 </a>
                 <a
-                  href="https://linkedin.com/in/munishbansal1"
+                  href="https://www.linkedin.com/in/munish-bansal-66b7844/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600 transition-colors"
