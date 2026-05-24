@@ -2,6 +2,12 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Anthropic from '@anthropic-ai/sdk';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -314,8 +320,19 @@ IMPORTANT:
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🌍 Travel Planner Server running on http://localhost:${PORT}`);
+// Serve the built React frontend in production
+const distPath = join(__dirname, 'dist');
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // Catch-all: send index.html for any non-API route (React Router support)
+  app.get('*', (req, res) => {
+    res.sendFile(join(distPath, 'index.html'));
+  });
+  console.log(`📦 Serving static frontend from: ${distPath}`);
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🌍 Travel Planner Server running on http://0.0.0.0:${PORT}`);
   console.log(`🔑 API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing — add ANTHROPIC_API_KEY to .env file'}`);
   console.log(`📡 Health check: http://localhost:${PORT}/api/health\n`);
 });
