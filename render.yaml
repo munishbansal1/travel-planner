@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: travel-planner-ai
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: APP_URL
+        value: https://travel-planner-ai.onrender.com
+      - key: ANTHROPIC_API_KEY
+        sync: false        # paste your Anthropic key in the Render dashboard
+      - key: STRIPE_SECRET_KEY
+        sync: false        # paste your Stripe secret key
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false        # optional — for webhook verification
