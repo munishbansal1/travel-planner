@@ -461,8 +461,13 @@ if (existsSync(distPath)) {
   app.get('*', (req, res) => res.sendFile(join(distPath, 'index.html')));
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🌍 Travel Planner Server → http://0.0.0.0:${PORT}`);
-  console.log(`🔑 API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing'}`);
-  console.log(`📊 Analytics: http://localhost:${PORT}/api/analytics\n`);
-});
+// Only bind to port when running directly (not on Vercel serverless)
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🌍 Travel Planner Server → http://0.0.0.0:${PORT}`);
+    console.log(`🔑 API Key: ${process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing'}`);
+    console.log(`📊 Analytics: http://localhost:${PORT}/api/analytics\n`);
+  });
+}
+
+export default app;
